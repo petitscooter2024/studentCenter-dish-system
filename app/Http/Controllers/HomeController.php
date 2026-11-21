@@ -2,19 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DailyMenu;
+use App\Services\MenuService;
 use Illuminate\View\View;
 
 class HomeController extends Controller
 {
-    public function index(): View
+    public function index(MenuService $menuService): View
     {
-        $todayMenu = DailyMenu::with([
-            'dailyMenuItems.foodItem.category',
-            'dailyMenuItems.ratings',
-        ])
-        ->whereDate('menu_date', today())
-        ->first();
+        $todayMenu = $menuService->getMenuForDate(
+            today()->toDateString()
+        );
 
         return view('home', compact('todayMenu'));
     }
