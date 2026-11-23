@@ -1,6 +1,7 @@
+
 <?php
 
-namespace App\Http\Controllers;
+
 
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -27,23 +28,28 @@ class AuthController extends Controller
             $user = Auth::user();
 
             if ($user->role === 'admin') {
-                return redirect('/admin/dashboard');
+                return redirect()->route('admin.dashboard');
             }
 
             if ($user->role === 'staff') {
-                return redirect('/staff/dashboard');
+                return redirect()->route('staff.dashboard');
             }
 
             Auth::logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
             return back()->withErrors([
                 'email' => 'Your account does not have access.',
             ]);
         }
 
-        return back()->withErrors([
-            'email' => 'The email or password is incorrect.',
-        ])->onlyInput('email');
+        return back()
+            ->withErrors([
+                'email' => 'The email or password is incorrect.',
+            ])
+            ->onlyInput('email');
     }
 
     public function logout(Request $request): RedirectResponse
@@ -53,6 +59,6 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()->route('home');
     }
 }
