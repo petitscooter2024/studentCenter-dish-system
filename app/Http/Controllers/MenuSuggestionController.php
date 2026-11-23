@@ -4,251 +4,176 @@
 
 
 use App\Http\Controllers\Controller;
-use App\Models\DailyMenu;
-use App\Models\DailyMenuItem;
+use App\Models\Category;
 use App\Models\FoodItem;
 use App\Models\MenuSuggestion;
-use App\Models\WeeklyMenuItem;
-use Illuminate\Http\Request;
+use App\Models\WeeklyMenu;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class MenuSuggestionController extends Controller
 {
-    /**
-     * Display all menu suggestions.
-     */
     public function index(): View
     {
+        $weeklyMenus = WeeklyMenu::with([
+            'weeklyMenuItems.foodItem.category',
+        ])
+            ->where('is_active', true)
+            ->orderBy('day_of_week')
+            ->get();
+
+        $categories = Category::orderBy('name')->get();
+
+        $foodItems = FoodItem::with('category')
+            ->orderBy('name')
+            ->get();
+
         $suggestions = MenuSuggestion::with([
             'weeklyMenu',
-            'weeklyMenuItem.foodItem.category',
+            'weeklyMenuItem.foodItem',
             'foodItem.category',
             'category',
             'submitter',
-            'reviewer',
         ])
+            ->where('submitted_by', Auth::id())
             ->latest()
             ->get();
 
-        return view('admin.suggestions.index', compact('suggestions'));
+        return view('staff.suggestions.index', compact(
+            'weeklyMenus',
+            'categories',
+            'foodItems',
+            'suggestions'
+        ));
     }
 
-    /**
-     * Approve and publish a menu suggestion.
-     */
-    public function approve(
-        Request $request,
-        MenuSuggestion $suggestion
-    ): RedirectResponse {
-        if ($suggestion->status !== 'pending') {
-            return back()->withErrors([
-                'suggestion' => 'This suggestion has already been reviewed.',
-            ]);
-        }
-
-        $action = $suggestion->action;
-
-        if (!in_array($action, ['add', 'replace', 'remove', 'remove_category'])) {
-            return back()->withErrors([
-                'suggestion' => 'This suggestion type is not supported.',
-            ]);
-        }
-
-        $priceRules = in_array($action, ['add', 'replace'])
-            ? ['required', 'numeric', 'min:0', 'max:99999999.99']
-            : ['nullable'];
-
-        $validated = $request->validate([
-            'price' => $priceRules,
-        ]);
-
-        DB::transaction(function () use ($suggestion, $validated, $action) {
-            $menu = $suggestion->weeklyMenu;
-
-            if (!$menu || !$menu->is_active) {
-                abort(422, 'The selected weekday menu is unavailable.');
-            }
-
-            if (in_array($action, ['remove', 'replace'])) {
-                $existingItem = WeeklyMenuItem::where(
-                    'weekly_menu_id',
-                    $menu->id
-                )
-                    ->whereKey($suggestion->weekly_menu_item_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$existingItem) {
-                    abort(422, 'The existing meal could not be found.');
-                }
-            }
-
-            if (in_array($action, ['add', 'replace'])) {
-                if (!$suggestion->food_item_id) {
-                    abort(422, 'The suggested food item could not be found.');
-                }
-
-                $foodItem = FoodItem::find($suggestion->food_item_id);
-
-                if (!$foodItem) {
-                    abort(422, 'The suggested food item no longer exists.');
-                }
-
-                if (
-                    $suggestion->category_id &&
-                    (int) $foodItem->category_id !== (int) $suggestion->category_id
-                ) {
-                    abort(422, 'The suggested food item does not belong to the selected category.');
-                }
-
-                $alreadyExists = WeeklyMenuItem::where(
-                    'weekly_menu_id',
-                    $menu->id
-                )
-                    ->where('food_item_id', $suggestion->food_item_id)
-                    ->exists();
-
-                if ($alreadyExists) {
-                    abort(422, 'This food item is already listed for this weekday.');
-                }
-            }
-
-            if ($action === 'remove_category') {
-                if (!$suggestion->category_id) {
-                    abort(422, 'The category to remove could not be found.');
-                }
-
-                $items = WeeklyMenuItem::where(
-                    'weekly_menu_id',
-                    $menu->id
-                )
-                    ->whereHas('foodItem', function ($query) use ($suggestion) {
-                        $query->where('category_id', $suggestion->category_id);
-                    })
-                    ->lockForUpdate()
-                    ->get();
-
-                if ($items->isEmpty()) {
-                    abort(422, 'This category has no meals in the selected weekday menu.');
-                }
-
-                foreach ($items as $item) {
-                    $item->update([
-                        'is_available' => false,
-                    ]);
-
-                    $this->syncTodayItem(
-                        $menu->id,
-                        $item->food_item_id,
-                        $item->price,
-                        false
-                    );
-                }
-            }
-
-            if (in_array($action, ['remove', 'replace'])) {
-                $existingItem->update([
-                    'is_available' => false,
-                ]);
-
-                $this->syncTodayItem(
-                    $menu->id,
-                    $existingItem->food_item_id,
-                    $existingItem->price,
-                    false
-                );
-            }
-
-            if (in_array($action, ['add', 'replace'])) {
-                $newItem = WeeklyMenuItem::create([
-                    'weekly_menu_id' => $menu->id,
-                    'food_item_id' => $suggestion->food_item_id,
-                    'price' => $validated['price'],
-                    'is_available' => true,
-                ]);
-
-                $this->syncTodayItem(
-                    $menu->id,
-                    $newItem->food_item_id,
-                    $newItem->price,
-                    true
-                );
-            }
-
-            $suggestion->update([
-                'status' => 'approved',
-                'reviewed_by' => Auth::id(),
-                'reviewed_at' => now(),
-            ]);
-        });
-
-        return back()->with(
-            'success',
-            'The suggested change has been published to the weekly menu.'
-        );
-    }
-
-    /**
-     * Reject a menu suggestion.
-     */
-    public function reject(MenuSuggestion $suggestion): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        if ($suggestion->status !== 'pending') {
-            return back()->withErrors([
-                'suggestion' => 'This suggestion has already been reviewed.',
-            ]);
+        $validated = $request->validate([
+            'weekly_menu_id' => [
+                'required',
+                'exists:weekly_menus,id',
+            ],
+            'action' => [
+                'required',
+                'in:add,remove,replace,remove_category',
+            ],
+            'weekly_menu_item_id' => [
+                'nullable',
+                'exists:weekly_menu_items,id',
+            ],
+            'category_id' => [
+                'nullable',
+                'exists:categories,id',
+            ],
+            'food_item_id' => [
+                'nullable',
+                'exists:food_items,id',
+            ],
+            'reason' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        $weeklyMenu = WeeklyMenu::where('is_active', true)
+            ->findOrFail($validated['weekly_menu_id']);
+
+        $action = $validated['action'];
+        $categoryId = $validated['category_id'] ?? null;
+        $foodItemId = $validated['food_item_id'] ?? null;
+        $weeklyMenuItemId = $validated['weekly_menu_item_id'] ?? null;
+
+        // Validate category selection.
+        if (in_array($action, ['add', 'replace', 'remove_category'])) {
+            if (!$categoryId) {
+                return back()->withErrors([
+                    'category_id' => 'Please select a category.',
+                ])->withInput();
+            }
         }
 
-        $suggestion->update([
-            'status' => 'rejected',
-            'reviewed_by' => Auth::id(),
-            'reviewed_at' => now(),
+        // Validate the existing meal selection.
+        if (in_array($action, ['remove', 'replace'])) {
+            if (!$weeklyMenuItemId) {
+                return back()->withErrors([
+                    'weekly_menu_item_id' => 'Please select the existing meal.',
+                ])->withInput();
+            }
+
+            $itemExists = $weeklyMenu->weeklyMenuItems()
+                ->whereKey($weeklyMenuItemId)
+                ->exists();
+
+            if (!$itemExists) {
+                return back()->withErrors([
+                    'weekly_menu_item_id' => 'The selected meal does not belong to this weekday.',
+                ])->withInput();
+            }
+        }
+
+        // Validate the new food item.
+        if (in_array($action, ['add', 'replace'])) {
+            if (!$foodItemId) {
+                return back()->withErrors([
+                    'food_item_id' => 'Please select the food item.',
+                ])->withInput();
+            }
+
+            $foodItem = FoodItem::where('id', $foodItemId)
+                ->where('category_id', $categoryId)
+                ->first();
+
+            if (!$foodItem) {
+                return back()->withErrors([
+                    'food_item_id' => 'The selected food item does not belong to the selected category.',
+                ])->withInput();
+            }
+
+            $alreadyExists = $weeklyMenu->weeklyMenuItems()
+                ->where('food_item_id', $foodItemId)
+                ->exists();
+
+            if ($alreadyExists) {
+                return back()->withErrors([
+                    'food_item_id' => 'This meal is already listed for the selected weekday.',
+                ])->withInput();
+            }
+        }
+
+        // Validate category removal.
+        if ($action === 'remove_category') {
+            $categoryExistsInMenu = $weeklyMenu->weeklyMenuItems()
+                ->whereHas('foodItem', function ($query) use ($categoryId) {
+                    $query->where('category_id', $categoryId);
+                })
+                ->exists();
+
+            if (!$categoryExistsInMenu) {
+                return back()->withErrors([
+                    'category_id' => 'This category has no meals in the selected weekday menu.',
+                ])->withInput();
+            }
+        }
+
+        // Save the suggestion.
+        MenuSuggestion::create([
+            'weekly_menu_id' => $weeklyMenu->id,
+            'weekly_menu_item_id' => $weeklyMenuItemId,
+            'category_id' => $categoryId,
+            'food_item_id' => $foodItemId,
+            'action' => $action,
+            'reason' => $validated['reason'] ?? null,
+            'status' => 'pending',
+            'submitted_by' => Auth::id(),
         ]);
 
         return back()->with(
             'success',
-            'The menu suggestion has been rejected.'
+            'Your weekly menu suggestion has been submitted successfully.'
         );
-    }
-
-    /**
-     * Synchronize a weekly menu change with today's daily menu.
-     */
-    private function syncTodayItem(
-        int $weeklyMenuId,
-        int $foodItemId,
-        mixed $price,
-        bool $isAvailable
-    ): void {
-        $today = today();
-
-        if ($today->dayOfWeekIso === 7) {
-            return;
-        }
-
-        $dailyMenu = DailyMenu::whereDate(
-            'menu_date',
-            $today->toDateString()
-        )
-            ->where('weekly_menu_id', $weeklyMenuId)
-            ->first();
-
-        if (!$dailyMenu) {
-            return;
-        }
-
-        $dailyItem = DailyMenuItem::firstOrNew([
-            'daily_menu_id' => $dailyMenu->id,
-            'food_item_id' => $foodItemId,
-        ]);
-
-        $dailyItem->price = $price;
-        $dailyItem->is_available = $isAvailable;
-        $dailyItem->availability_override = null;
-
-        $dailyItem->save();
     }
 }
