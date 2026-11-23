@@ -6,13 +6,14 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller
 {
     public function index(): View
     {
         $categories = Category::withCount('foodItems')
-            ->latest()
+            ->orderBy('name')
             ->get();
 
         return view('admin.categories.index', compact('categories'));
@@ -30,10 +31,17 @@ class CategoryController extends Controller
         return back()->with('success', 'Category added successfully.');
     }
 
-    public function update(Request $request, Category $category): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        Category $category
+    ): RedirectResponse {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:categories,name,' . $category->id],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('categories', 'name')->ignore($category->id),
+            ],
             'description' => ['nullable', 'string'],
         ]);
 
@@ -44,6 +52,12 @@ class CategoryController extends Controller
 
     public function destroy(Category $category): RedirectResponse
     {
+        if ($category->foodItems()->exists()) {
+            return back()->withErrors([
+                'category' => 'This category contains food items. Reassign or remove those food items before deleting it.',
+            ]);
+        }
+
         $category->delete();
 
         return back()->with('success', 'Category deleted successfully.');

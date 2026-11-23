@@ -12,28 +12,32 @@ class CategorySeeder extends Seeder
         $categories = [
             [
                 'name' => 'Breakfast',
-                'description' => 'Breakfast meals and dishes.',
+                'description' => 'Breakfast meals and foods.',
             ],
             [
-                'name' => 'Main Meals',
-                'description' => 'Lunch and dinner meals.',
+                'name' => 'Main Dishes',
+                'description' => 'Main meals served at the cafeteria.',
+            ],
+            [
+                'name' => 'Sides',
+                'description' => 'Side dishes such as ugali, rice and chapati.',
             ],
             [
                 'name' => 'Snacks',
-                'description' => 'Light meals and snacks.',
+                'description' => 'Snacks such as samosas and sausages.',
             ],
             [
                 'name' => 'Beverages',
-                'description' => 'Drinks and refreshments.',
+                'description' => 'Drinks such as tea, water and juice.',
             ],
             [
                 'name' => 'Desserts',
-                'description' => 'Sweet dishes and desserts.',
+                'description' => 'Desserts such as fruit salad and yoghurt.',
             ],
         ];
 
         foreach ($categories as $category) {
-            Category::firstOrCreate(
+            Category::updateOrCreate(
                 ['name' => $category['name']],
                 ['description' => $category['description']]
             );

@@ -3,9 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
-use App\Models\DailyMenu;
 use App\Models\FoodItem;
 use App\Models\User;
+use App\Models\WeeklyMenu;
+use App\Models\WeeklyMenuItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,7 +14,7 @@ class MenuManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_manage_daily_menu_items(): void
+    public function test_admin_can_create_weekly_menu_and_add_meals(): void
     {
         $admin = User::factory()->create([
             'role' => 'admin',
@@ -32,47 +33,42 @@ class MenuManagementTest extends TestCase
 
         $this->actingAs($admin);
 
-        // Create a daily menu
-        $this->post(route('admin.daily-menus.store'), [
-            'menu_date' => '2026-11-22',
-            'title' => 'Sunday Menu',
+        $this->post(route('admin.weekly-menus.store'), [
+            'day_of_week' => 1,
+            'title' => 'Monday Menu',
         ])->assertSessionHasNoErrors();
 
-        $menu = DailyMenu::whereDate('menu_date', '2026-11-22')
-            ->firstOrFail();
+        $menu = WeeklyMenu::where('day_of_week', 1)->firstOrFail();
 
-        // Add a dish
-        $this->post(route('admin.daily-menus.items.store', $menu), [
+        $this->post(route('admin.weekly-menus.items.store', $menu), [
+            'items' => [
+                [
+                    'food_item_id' => $food->id,
+                    'selected' => 1,
+                    'price' => 100,
+                ],
+            ],
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('weekly_menu_items', [
+            'weekly_menu_id' => $menu->id,
             'food_item_id' => $food->id,
             'price' => 100,
             'is_available' => 1,
-        ])->assertSessionHasNoErrors();
-
-        $menuItem = $menu->dailyMenuItems()->firstOrFail();
-
-        $this->assertDatabaseHas('daily_menu_items', [
-            'id' => $menuItem->id,
-            'price' => 100,
         ]);
 
-        // Update price and availability
-        $this->put(route('admin.menu-items.update', $menuItem), [
-            'price' => 120,
-            'is_available' => 0,
-        ])->assertSessionHasNoErrors();
+        $menuItem = WeeklyMenuItem::where('weekly_menu_id', $menu->id)
+            ->where('food_item_id', $food->id)
+            ->firstOrFail();
 
-        $this->assertDatabaseHas('daily_menu_items', [
+        $this->delete(route('admin.weekly-menus.items.destroy', [
+            $menu,
+            $menuItem,
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('weekly_menu_items', [
             'id' => $menuItem->id,
-            'price' => 120,
             'is_available' => 0,
-        ]);
-
-        // Remove the dish
-        $this->delete(route('admin.menu-items.destroy', $menuItem))
-            ->assertSessionHasNoErrors();
-
-        $this->assertDatabaseMissing('daily_menu_items', [
-            'id' => $menuItem->id,
         ]);
     }
 }

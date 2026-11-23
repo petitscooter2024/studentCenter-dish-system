@@ -2,67 +2,74 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Category;
 use App\Models\FoodItem;
+use Illuminate\Database\Seeder;
 
 class FoodItemSeeder extends Seeder
 {
     public function run(): void
     {
-        $foodItems = [
+        $foods = [
             [
                 'category' => 'Breakfast',
                 'name' => 'Tea and Bread',
                 'description' => 'Hot tea served with fresh bread.',
+                'image' => '/images/tea-and-bread.jpg',
             ],
             [
                 'category' => 'Breakfast',
                 'name' => 'Mandazi',
-                'description' => 'Freshly prepared Kenyan mandazi.',
+                'description' => 'Freshly prepared mandazi.',
+                'image' => '/images/mandazi.jpg',
             ],
             [
-                'category' => 'Main Meals',
+                'category' => 'Main Dishes',
                 'name' => 'Pilau',
-                'description' => 'Spiced rice served with beef.',
+                'description' => 'Spiced rice prepared with traditional seasoning.',
+                'image' => '/images/pilau.jpg',
             ],
             [
-                'category' => 'Main Meals',
+                'category' => 'Sides',
                 'name' => 'Ugali and Sukuma Wiki',
-                'description' => 'Ugali served with fried sukuma wiki.',
+                'description' => 'Ugali served with cooked sukuma wiki.',
+                'image' => '/images/ugali-and-sukuma-wiki.jpg',
             ],
             [
-                'category' => 'Main Meals',
+                'category' => 'Sides',
                 'name' => 'Rice and Beans',
-                'description' => 'Rice served with cooked beans.',
+                'description' => 'Rice served with beans.',
+                'image' => '/images/rice-and-beans.jpg',
             ],
             [
                 'category' => 'Snacks',
                 'name' => 'Samosa',
-                'description' => 'Crispy pastry with a savoury filling.',
+                'description' => 'Crispy savoury samosas.',
+                'image' => '/images/samosa.jpg',
             ],
             [
                 'category' => 'Beverages',
                 'name' => 'Fresh Juice',
                 'description' => 'Freshly prepared fruit juice.',
+                'image' => '/images/fresh-juice.jpg',
             ],
             [
                 'category' => 'Desserts',
                 'name' => 'Fruit Salad',
-                'description' => 'A mixture of fresh seasonal fruits.',
+                'description' => 'A fresh mix of seasonal fruits.',
+                'image' => '/images/fruit-salad.jpg',
             ],
         ];
 
-        foreach ($foodItems as $item) {
-            $category = Category::where('name', $item['category'])->firstOrFail();
+        foreach ($foods as $food) {
+            $category = Category::where('name', $food['category'])->firstOrFail();
 
-            FoodItem::firstOrCreate(
+            FoodItem::updateOrCreate(
+                ['name' => $food['name']],
                 [
                     'category_id' => $category->id,
-                    'name' => $item['name'],
-                ],
-                [
-                    'description' => $item['description'],
+                    'description' => $food['description'],
+                    'image' => $food['image'],
                 ]
             );
         }

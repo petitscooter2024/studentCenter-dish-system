@@ -24,4 +24,9 @@ class FoodItem extends Model
     {
         return $this->hasMany(DailyMenuItem::class);
     }
+
+    public function weeklyMenuItems(): HasMany
+    {
+        return $this->hasMany(WeeklyMenuItem::class);
+    }
 }

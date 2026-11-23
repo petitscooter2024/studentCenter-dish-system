@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Support\Facades\Route;
@@ -10,34 +11,34 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\FoodItemController;
-use App\Http\Controllers\DailyMenuController;
 use App\Http\Controllers\StaffManagementController;
 
-// Public pages
+use App\Http\Controllers\Admin\WeeklyMenuController;
+use App\Http\Controllers\Admin\MenuSuggestionController as AdminMenuSuggestionController;
+use App\Http\Controllers\Staff\MenuSuggestionController as StaffMenuSuggestionController;
+
+// PUBLIC PAGES
+
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-Route::get('/menu', [MenuController::class, 'index'])
-    ->name('menu.index');
-
-Route::get('/menu/{dailyMenu}', [MenuController::class, 'show'])
-    ->name('menu.show');
+Route::get('/menu', [MenuController::class, 'index'])->name('menu.index');
 
 Route::post('/ratings', [RatingController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('ratings.store');
 
-// Authentication
-Route::get('/login', [AuthController::class, 'showLogin'])
-    ->name('login');
+// AUTHENTICATION
 
-Route::post('/login', [AuthController::class, 'login'])
-    ->name('login.submit');
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+
+Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
 
-// Admin pages
+// ADMIN PAGES
+
 Route::middleware(['auth', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
@@ -46,26 +47,35 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('/dashboard', [AdminController::class, 'dashboard'])
             ->name('dashboard');
 
+        Route::get('/ratings', [AdminController::class, 'ratings'])
+            ->name('ratings.index');
+
         Route::resource('/categories', CategoryController::class)
             ->except(['create', 'edit', 'show']);
 
         Route::resource('/food-items', FoodItemController::class)
             ->except(['create', 'edit', 'show']);
 
-        Route::get('/daily-menus', [DailyMenuController::class, 'index'])
-            ->name('daily-menus.index');
+        Route::get('/weekly-menus', [WeeklyMenuController::class, 'index'])
+            ->name('weekly-menus.index');
 
-        Route::post('/daily-menus', [DailyMenuController::class, 'store'])
-            ->name('daily-menus.store');
+        Route::post('/weekly-menus', [WeeklyMenuController::class, 'saveMenu'])
+            ->name('weekly-menus.store');
 
-        Route::post('/daily-menus/{dailyMenu}/items', [DailyMenuController::class, 'addItem'])
-            ->name('daily-menus.items.store');
+        Route::post('/weekly-menus/{weeklyMenu}/items', [WeeklyMenuController::class, 'addItem'])
+            ->name('weekly-menus.items.store');
 
-        Route::put('/menu-items/{dailyMenuItem}', [DailyMenuController::class, 'updateItem'])
-            ->name('menu-items.update');
+        Route::delete('/weekly-menus/{weeklyMenu}/items/{item}', [WeeklyMenuController::class, 'removeItem'])
+            ->name('weekly-menus.items.destroy');
 
-        Route::delete('/menu-items/{dailyMenuItem}', [DailyMenuController::class, 'removeItem'])
-            ->name('menu-items.destroy');
+        Route::get('/suggestions', [AdminMenuSuggestionController::class, 'index'])
+            ->name('suggestions.index');
+
+        Route::post('/suggestions/{suggestion}/approve', [AdminMenuSuggestionController::class, 'approve'])
+            ->name('suggestions.approve');
+
+        Route::post('/suggestions/{suggestion}/reject', [AdminMenuSuggestionController::class, 'reject'])
+            ->name('suggestions.reject');
 
         Route::get('/staff', [StaffManagementController::class, 'index'])
             ->name('staff.index');
@@ -77,7 +87,8 @@ Route::middleware(['auth', 'role:admin'])
             ->name('staff.destroy');
     });
 
-// Staff pages
+// STAFF PAGES
+
 Route::middleware(['auth', 'role:staff'])
     ->prefix('staff')
     ->name('staff.')
@@ -86,6 +97,12 @@ Route::middleware(['auth', 'role:staff'])
         Route::get('/dashboard', [StaffController::class, 'dashboard'])
             ->name('dashboard');
 
-        Route::post('/daily-menu', [StaffController::class, 'storeMenu'])
-            ->name('daily-menu.store');
+        Route::post('/daily-menu-items/{item}/availability', [StaffController::class, 'updateAvailability'])
+            ->name('daily-menu-items.availability');
+
+        Route::get('/suggestions', [StaffMenuSuggestionController::class, 'index'])
+            ->name('suggestions.index');
+
+        Route::post('/suggestions', [StaffMenuSuggestionController::class, 'store'])
+            ->name('suggestions.store');
     });

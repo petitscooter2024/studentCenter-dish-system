@@ -13,6 +13,8 @@ class DailyMenuItem extends Model
         'food_item_id',
         'price',
         'is_available',
+        'is_visible',
+        'availability_override',
     ];
 
     protected function casts(): array
@@ -20,6 +22,7 @@ class DailyMenuItem extends Model
         return [
             'price' => 'decimal:2',
             'is_available' => 'boolean',
+            'is_visible' => 'boolean',
         ];
     }
 
