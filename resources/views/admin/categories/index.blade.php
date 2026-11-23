@@ -1,24 +1,18 @@
-
 @extends('layouts.app')
 
 @section('content')
-
 <section class="container">
-
-    {{-- Page heading --}}
     <div class="section-heading">
         <h1>Manage Categories</h1>
         <p>Create and manage food categories.</p>
     </div>
 
-    {{-- Success message --}}
     @if(session('success'))
         <div class="alert alert-success">
             {{ session('success') }}
         </div>
     @endif
 
-    {{-- Validation errors --}}
     @if($errors->any())
         <div class="alert alert-danger">
             <ul>
@@ -29,13 +23,10 @@
         </div>
     @endif
 
-    {{-- Add category form --}}
     <div class="form-card">
         <h2>Add New Category</h2>
-
         <form action="{{ route('admin.categories.store') }}" method="POST">
             @csrf
-
             <label for="name">Category Name</label>
             <input
                 type="text"
@@ -58,13 +49,11 @@
         </form>
     </div>
 
-    {{-- Existing categories --}}
     <div class="section-heading">
         <h2>Existing Categories</h2>
     </div>
 
     @if($categories->count() > 0)
-
         <div class="table-responsive">
             <table>
                 <thead>
@@ -75,22 +64,17 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
-
                 <tbody>
                     @foreach($categories as $category)
                         <tr>
                             <td>{{ $category->name }}</td>
-
                             <td>
                                 {{ $category->description ?? 'No description' }}
                             </td>
-
                             <td>
                                 {{ $category->food_items_count }}
                             </td>
-
                             <td>
-                                {{-- Update category form --}}
                                 <form
                                     action="{{ route('admin.categories.update', $category->id) }}"
                                     method="POST"
@@ -117,7 +101,6 @@
                                     </button>
                                 </form>
 
-                                {{-- Delete category form --}}
                                 <form
                                     action="{{ route('admin.categories.destroy', $category->id) }}"
                                     method="POST"
@@ -125,7 +108,6 @@
                                 >
                                     @csrf
                                     @method('DELETE')
-
                                     <button type="submit" class="btn btn-danger">
                                         Delete
                                     </button>
@@ -136,17 +118,11 @@
                 </tbody>
             </table>
         </div>
-
     @else
-
-        {{-- Empty state --}}
         <div class="empty-state">
             <h3>No Categories Yet</h3>
             <p>Add your first food category using the form above.</p>
         </div>
-
     @endif
-
 </section>
-
 @endsection
