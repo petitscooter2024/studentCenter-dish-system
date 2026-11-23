@@ -1,16 +1,19 @@
+
 <?php
 
-namespace App\Http\Controllers;
+
 
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StaffManagementController extends Controller
 {
+    /**
+     * Display all staff members.
+     */
     public function index(): View
     {
         $staffMembers = User::where('role', 'staff')
@@ -20,6 +23,9 @@ class StaffManagementController extends Controller
         return view('admin.staff.index', compact('staffMembers'));
     }
 
+    /**
+     * Create a new staff account.
+     */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -38,6 +44,9 @@ class StaffManagementController extends Controller
         return back()->with('success', 'Staff account created successfully.');
     }
 
+    /**
+     * Delete a staff account.
+     */
     public function destroy(User $user): RedirectResponse
     {
         abort_unless($user->role === 'staff', 404);
